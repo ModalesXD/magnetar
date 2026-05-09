@@ -1,0 +1,484 @@
+<!-- magnetar: layer=top, height=40, anchor=top|left|right, exclusive_zone=-1 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: rgba(30, 30, 46, 0.95);
+        color: #cdd6f4;
+        font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        height: 40px;
+        overflow: hidden;
+      }
+
+      .left,
+      .center,
+      .right {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        height: 100%;
+      }
+
+      .center {
+        flex: 1;
+        justify-content: center;
+      }
+
+      /* Workspaces */
+      .workspaces {
+        display: flex;
+        gap: 8px;
+      }
+
+      .workspace {
+        padding: 6px 14px;
+        background: rgba(137, 180, 250, 0.15);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 13px;
+        font-weight: 500;
+        border: 1px solid transparent;
+        user-select: none;
+      }
+
+      .workspace:hover {
+        background: rgba(137, 180, 250, 0.3);
+        transform: translateY(-1px);
+      }
+
+      .workspace.active {
+        background: #89b4fa;
+        color: #1e1e2e;
+        font-weight: 700;
+        border-color: #89b4fa;
+        box-shadow: 0 2px 8px rgba(137, 180, 250, 0.4);
+      }
+
+      .workspace.occupied {
+        background: rgba(137, 180, 250, 0.25);
+        border-color: rgba(137, 180, 250, 0.3);
+      }
+
+      .workspace.urgent {
+        background: rgba(243, 139, 168, 0.3);
+        border-color: #f38ba8;
+        animation: pulse 1s infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.7;
+        }
+      }
+
+      /* Active Window */
+      .active-window {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 16px;
+        background: rgba(137, 180, 250, 0.1);
+        border-radius: 6px;
+        max-width: 400px;
+        border: 1px solid rgba(137, 180, 250, 0.2);
+      }
+
+      .window-icon {
+        font-size: 16px;
+      }
+
+      .window-title {
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #89b4fa;
+      }
+
+      .window-class {
+        font-size: 11px;
+        color: #bac2de;
+        opacity: 0.7;
+      }
+
+      /* System Info */
+      .system-info {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+      }
+
+      .info-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: rgba(137, 180, 250, 0.1);
+        border-radius: 6px;
+        font-size: 13px;
+        border: 1px solid rgba(137, 180, 250, 0.15);
+      }
+
+      .info-icon {
+        font-size: 14px;
+        color: #89b4fa;
+      }
+
+      .info-value {
+        font-weight: 600;
+        color: #cdd6f4;
+      }
+
+      /* Time */
+      .time {
+        font-weight: 700;
+        color: #89b4fa;
+        font-size: 14px;
+        letter-spacing: 0.5px;
+      }
+
+      .date {
+        font-size: 12px;
+        color: #bac2de;
+        opacity: 0.8;
+      }
+
+      /* Logo */
+      .logo {
+        font-size: 18px;
+        font-weight: 700;
+        background: linear-gradient(135deg, #89b4fa 0%, #cba6f7 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        user-select: none;
+      }
+
+      /* Loading state */
+      .loading {
+        opacity: 0.5;
+        animation: loading 1.5s infinite;
+      }
+
+      @keyframes loading {
+        0%,
+        100% {
+          opacity: 0.5;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+
+      /* Tooltip */
+      [data-tooltip] {
+        position: relative;
+      }
+
+      [data-tooltip]:hover::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: -30px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 4px 8px;
+        background: rgba(17, 17, 27, 0.95);
+        color: #cdd6f4;
+        font-size: 11px;
+        border-radius: 4px;
+        white-space: nowrap;
+        z-index: 1000;
+        border: 1px solid rgba(137, 180, 250, 0.3);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="left">
+      <div class="logo">⚡ Magnetar</div>
+      <div class="workspaces" id="workspaces">
+        <div class="workspace loading">...</div>
+      </div>
+    </div>
+
+    <div class="center">
+      <div class="active-window" id="active-window">
+        <span class="window-icon">🪟</span>
+        <div>
+          <div class="window-title">Cargando...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="system-info">
+        <div class="info-item" data-tooltip="Ventanas abiertas">
+          <span class="info-icon">📊</span>
+          <span class="info-value" id="window-count">0</span>
+        </div>
+      </div>
+      <div class="info-item">
+        <span class="time" id="time">00:00</span>
+        <span class="date" id="date">Lun 1 Ene</span>
+      </div>
+    </div>
+
+    <script>
+      // Estado global
+      let state = {
+        workspaces: [],
+        activeWorkspace: null,
+        activeWindow: null,
+        clients: [],
+      };
+
+      // Actualizar reloj
+      function updateTime() {
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, "0");
+        const minutes = String(now.getMinutes()).padStart(2, "0");
+        document.getElementById("time").textContent = `${hours}:${minutes}`;
+
+        const days = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+        const months = [
+          "Ene",
+          "Feb",
+          "Mar",
+          "Abr",
+          "May",
+          "Jun",
+          "Jul",
+          "Ago",
+          "Sep",
+          "Oct",
+          "Nov",
+          "Dic",
+        ];
+        const dateStr = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]}`;
+        document.getElementById("date").textContent = dateStr;
+      }
+
+      // Actualizar workspaces
+      async function updateWorkspaces() {
+        if (!window.magnetar) return;
+
+        try {
+          const workspaces = await magnetar.invoke("hyprland.workspaces");
+          const active = await magnetar.invoke("hyprland.activeworkspace");
+
+          state.workspaces = workspaces;
+          state.activeWorkspace = active;
+
+          renderWorkspaces();
+        } catch (e) {
+          console.error("Error updating workspaces:", e);
+        }
+      }
+
+      // Renderizar workspaces
+      function renderWorkspaces() {
+        const container = document.getElementById("workspaces");
+
+        if (!state.workspaces || state.workspaces.length === 0) {
+          container.innerHTML = '<div class="workspace loading">...</div>';
+          return;
+        }
+
+        // Ordenar por ID
+        const sorted = [...state.workspaces].sort((a, b) => a.id - b.id);
+
+        container.innerHTML = sorted
+          .map((ws) => {
+            const isActive =
+              state.activeWorkspace && ws.id === state.activeWorkspace.id;
+            const isOccupied = ws.windows > 0;
+            const isUrgent = ws.urgent;
+
+            let classes = ["workspace"];
+            if (isActive) classes.push("active");
+            else if (isOccupied) classes.push("occupied");
+            if (isUrgent) classes.push("urgent");
+
+            return `
+                    <div class="${classes.join(" ")}" 
+                         onclick="switchWorkspace(${ws.id})"
+                         data-tooltip="Workspace ${ws.name} (${ws.windows} ventanas)">
+                        ${ws.id}
+                    </div>
+                `;
+          })
+          .join("");
+      }
+
+      // Cambiar workspace
+      async function switchWorkspace(id) {
+        if (!window.magnetar) return;
+
+        try {
+          await magnetar.invoke("hyprland.exec", `workspace ${id}`);
+        } catch (e) {
+          console.error("Error switching workspace:", e);
+        }
+      }
+
+      // Actualizar ventana activa
+      async function updateActiveWindow() {
+        if (!window.magnetar) return;
+
+        try {
+          const window = await magnetar.invoke("hyprland.activewindow");
+          state.activeWindow = window;
+          renderActiveWindow();
+        } catch (e) {
+          console.error("Error updating active window:", e);
+        }
+      }
+
+      // Renderizar ventana activa
+      function renderActiveWindow() {
+        const container = document.getElementById("active-window");
+
+        if (!state.activeWindow || !state.activeWindow.title) {
+          container.innerHTML = `
+                    <span class="window-icon">🪟</span>
+                    <div>
+                        <div class="window-title">Sin ventana activa</div>
+                    </div>
+                `;
+          return;
+        }
+
+        const icon = getWindowIcon(state.activeWindow.class);
+        const title = state.activeWindow.title || "Sin título";
+        const className = state.activeWindow.class || "unknown";
+
+        container.innerHTML = `
+                <span class="window-icon">${icon}</span>
+                <div>
+                    <div class="window-title" title="${title}">${title}</div>
+                    <div class="window-class">${className}</div>
+                </div>
+            `;
+      }
+
+      // Obtener icono según la clase de ventana
+      function getWindowIcon(className) {
+        const icons = {
+          firefox: "🦊",
+          chromium: "🌐",
+          chrome: "🌐",
+          code: "💻",
+          vscode: "💻",
+          terminal: "⚡",
+          kitty: "🐱",
+          alacritty: "⚡",
+          discord: "💬",
+          spotify: "🎵",
+          thunar: "📁",
+          nautilus: "📁",
+          gimp: "🎨",
+          inkscape: "🎨",
+          vlc: "🎬",
+        };
+
+        const lower = (className || "").toLowerCase();
+        for (const [key, icon] of Object.entries(icons)) {
+          if (lower.includes(key)) return icon;
+        }
+        return "🪟";
+      }
+
+      // Actualizar contador de ventanas
+      async function updateWindowCount() {
+        if (!window.magnetar) return;
+
+        try {
+          const clients = await magnetar.invoke("hyprland.clients");
+          state.clients = clients;
+          document.getElementById("window-count").textContent = clients.length;
+        } catch (e) {
+          console.error("Error updating window count:", e);
+        }
+      }
+
+      // Actualizar todo
+      async function updateAll() {
+        await Promise.all([
+          updateWorkspaces(),
+          updateActiveWindow(),
+          updateWindowCount(),
+        ]);
+      }
+
+      // Inicializar
+      function init() {
+        console.log("Magnetar Topbar initialized");
+
+        // Actualizar reloj
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        // Esperar a que magnetar esté disponible
+        if (window.magnetar) {
+          setupMagnetar();
+        } else {
+          // Reintentar cada 100ms
+          const checkInterval = setInterval(() => {
+            if (window.magnetar) {
+              clearInterval(checkInterval);
+              setupMagnetar();
+            }
+          }, 100);
+        }
+      }
+
+      // Configurar Magnetar
+      function setupMagnetar() {
+        console.log("Magnetar API available");
+
+        // Actualización inicial
+        updateAll();
+
+        // Actualizar periódicamente (fallback)
+        setInterval(updateAll, 5000);
+
+        // Escuchar eventos del compositor
+        magnetar.on("workspace:changed", (data) => {
+          console.log("Workspace changed:", data);
+          updateWorkspaces();
+          updateActiveWindow();
+        });
+
+        magnetar.on("activewindow:changed", (data) => {
+          console.log("Active window changed:", data);
+          updateActiveWindow();
+          updateWindowCount();
+        });
+      }
+
+      // Iniciar cuando el DOM esté listo
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+      } else {
+        init();
+      }
+    </script>
+  </body>
+</html>

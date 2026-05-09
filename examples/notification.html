@@ -1,0 +1,141 @@
+<!-- magnetar: layer=overlay, height=80, width=350, anchor=top|right, margin_top=50, margin_right=20, exclusive_zone=0 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: rgba(30, 30, 46, 0.98);
+        color: #cdd6f4;
+        font-family: "JetBrains Mono", monospace;
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 4px solid #89b4fa;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        animation: slideIn 0.3s ease-out;
+      }
+
+      @keyframes slideIn {
+        from {
+          transform: translateX(400px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .title {
+        color: #89b4fa;
+        font-weight: bold;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .time {
+        font-size: 11px;
+        color: #bac2de;
+        opacity: 0.7;
+      }
+
+      .message {
+        font-size: 13px;
+        color: #cdd6f4;
+        line-height: 1.4;
+      }
+
+      .icon {
+        font-size: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="title">
+        <span class="icon" id="icon">🔔</span>
+        <span id="title">Workspace Cambiado</span>
+      </div>
+      <div class="time" id="time">Ahora</div>
+    </div>
+    <div class="message" id="message">
+      Workspace activo: <strong id="workspace">1</strong>
+    </div>
+
+    <script>
+      function showNotification(title, message, icon = "🔔") {
+        document.getElementById("icon").textContent = icon;
+        document.getElementById("title").textContent = title;
+        document.getElementById("message").innerHTML = message;
+
+        const now = new Date();
+        const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+        document.getElementById("time").textContent = timeStr;
+
+        // Auto-ocultar después de 3 segundos
+        setTimeout(() => {
+          document.body.style.animation = "slideOut 0.3s ease-in";
+          setTimeout(() => {
+            if (window.magnetar) {
+              magnetar.invoke("window.hide");
+            }
+          }, 300);
+        }, 3000);
+      }
+
+      function init() {
+        if (window.magnetar) {
+          setup();
+        } else {
+          const check = setInterval(() => {
+            if (window.magnetar) {
+              clearInterval(check);
+              setup();
+            }
+          }, 100);
+        }
+      }
+
+      function setup() {
+        magnetar.on("workspace:changed", (data) => {
+          showNotification(
+            "Workspace Cambiado",
+            `Workspace activo: <strong>${data.id}</strong>`,
+            "🖥️",
+          );
+          magnetar.invoke("window.show");
+        });
+
+        magnetar.on("activewindow:changed", (data) => {
+          showNotification(
+            "Ventana Activa",
+            `<strong>${data.title}</strong><br><small>${data.class}</small>`,
+            "🪟",
+          );
+          magnetar.invoke("window.show");
+        });
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+      } else {
+        init();
+      }
+    </script>
+  </body>
+</html>

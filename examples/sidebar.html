@@ -1,0 +1,254 @@
+<!-- magnetar: layer=top, width=300, anchor=top|bottom|left, exclusive_zone=-1, margin_top=10, margin_bottom=10, margin_left=10 -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: rgba(30, 30, 46, 0.95);
+        color: #cdd6f4;
+        font-family: "JetBrains Mono", monospace;
+        padding: 20px;
+        height: 100vh;
+        overflow-y: auto;
+        border-radius: 10px;
+      }
+
+      h1 {
+        color: #89b4fa;
+        margin-bottom: 20px;
+        font-size: 24px;
+        border-bottom: 2px solid rgba(137, 180, 250, 0.3);
+        padding-bottom: 10px;
+      }
+
+      .section {
+        margin-bottom: 25px;
+        background: rgba(137, 180, 250, 0.05);
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid rgba(137, 180, 250, 0.1);
+      }
+
+      .section h2 {
+        color: #f38ba8;
+        font-size: 16px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .workspace-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .workspace-item {
+        padding: 10px;
+        background: rgba(137, 180, 250, 0.1);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+      }
+
+      .workspace-item:hover {
+        background: rgba(137, 180, 250, 0.2);
+        transform: translateX(5px);
+      }
+
+      .workspace-item.active {
+        background: #89b4fa;
+        color: #1e1e2e;
+        border-color: #89b4fa;
+      }
+
+      .workspace-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .workspace-name {
+        font-weight: 600;
+      }
+
+      .workspace-windows {
+        font-size: 12px;
+        opacity: 0.7;
+      }
+
+      .client-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
+      .client-item {
+        padding: 8px;
+        background: rgba(137, 180, 250, 0.08);
+        border-radius: 4px;
+        font-size: 12px;
+        border-left: 3px solid transparent;
+      }
+
+      .client-item.focused {
+        border-left-color: #89b4fa;
+        background: rgba(137, 180, 250, 0.15);
+      }
+
+      .client-title {
+        font-weight: 600;
+        margin-bottom: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .client-meta {
+        display: flex;
+        gap: 10px;
+        font-size: 10px;
+        opacity: 0.6;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 20px;
+        opacity: 0.5;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>📊 Hyprland Info</h1>
+
+    <div class="section">
+      <h2>🖥️ Workspaces</h2>
+      <div class="workspace-list" id="workspaces">
+        <div class="loading">Cargando...</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🪟 Ventanas</h2>
+      <div class="client-list" id="clients">
+        <div class="loading">Cargando...</div>
+      </div>
+    </div>
+
+    <script>
+      async function updateWorkspaces() {
+        if (!window.magnetar) return;
+
+        try {
+          const workspaces = await magnetar.invoke("hyprland.workspaces");
+          const active = await magnetar.invoke("hyprland.activeworkspace");
+
+          const container = document.getElementById("workspaces");
+          const sorted = [...workspaces].sort((a, b) => a.id - b.id);
+
+          container.innerHTML = sorted
+            .map((ws) => {
+              const isActive = ws.id === active.id;
+              return `
+                        <div class="workspace-item ${isActive ? "active" : ""}" 
+                             onclick="switchWorkspace(${ws.id})">
+                            <div class="workspace-info">
+                                <span class="workspace-name">Workspace ${ws.id}: ${ws.name}</span>
+                                <span class="workspace-windows">${ws.windows} ventanas</span>
+                            </div>
+                        </div>
+                    `;
+            })
+            .join("");
+        } catch (e) {
+          console.error("Error:", e);
+        }
+      }
+
+      async function updateClients() {
+        if (!window.magnetar) return;
+
+        try {
+          const clients = await magnetar.invoke("hyprland.clients");
+          const container = document.getElementById("clients");
+
+          if (clients.length === 0) {
+            container.innerHTML =
+              '<div class="loading">No hay ventanas abiertas</div>';
+            return;
+          }
+
+          container.innerHTML = clients
+            .map((client) => {
+              return `
+                        <div class="client-item ${client.focused ? "focused" : ""}">
+                            <div class="client-title">${client.title || "Sin título"}</div>
+                            <div class="client-meta">
+                                <span>WS: ${client.workspace}</span>
+                                <span>${client.class}</span>
+                                ${client.floating ? "<span>🎈 Flotante</span>" : ""}
+                                ${client.fullscreen ? "<span>⛶ Fullscreen</span>" : ""}
+                            </div>
+                        </div>
+                    `;
+            })
+            .join("");
+        } catch (e) {
+          console.error("Error:", e);
+        }
+      }
+
+      async function switchWorkspace(id) {
+        if (!window.magnetar) return;
+        try {
+          await magnetar.invoke("hyprland.exec", `workspace ${id}`);
+        } catch (e) {
+          console.error("Error:", e);
+        }
+      }
+
+      function init() {
+        if (window.magnetar) {
+          setup();
+        } else {
+          const check = setInterval(() => {
+            if (window.magnetar) {
+              clearInterval(check);
+              setup();
+            }
+          }, 100);
+        }
+      }
+
+      function setup() {
+        updateWorkspaces();
+        updateClients();
+
+        setInterval(() => {
+          updateWorkspaces();
+          updateClients();
+        }, 2000);
+
+        magnetar.on("workspace:changed", updateWorkspaces);
+        magnetar.on("activewindow:changed", updateClients);
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+      } else {
+        init();
+      }
+    </script>
+  </body>
+</html>
